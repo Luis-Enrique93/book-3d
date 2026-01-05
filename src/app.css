@@ -1,0 +1,41 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #0b0f19;
+}
+#app {
+  position: fixed;
+  inset: 0;
+}
+.hud,
+.hint {
+  position: fixed;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.9);
+  font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  user-select: none;
+}
+.hud {
+  left: 12px;
+  top: 12px;
+}
+.hint {
+  right: 12px;
+  top: 12px;
+  text-align: right;
+}
+.hud b {
+  color: #fff;
+}
+.hud kbd {
+  font: inherit;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
