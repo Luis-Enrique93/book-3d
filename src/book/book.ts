@@ -36,6 +36,8 @@ export class Book {
 
   // Geometrías y materiales
   private readonly paperTex: THREE.Texture
+  private readonly coverTexFront: THREE.Texture
+  private readonly coverTexBack: THREE.Texture
   private readonly leftMat: THREE.MeshStandardMaterial
   private readonly rightMat: THREE.MeshStandardMaterial
   private readonly leftPage: THREE.Mesh
@@ -44,6 +46,13 @@ export class Book {
   private readonly underRight: THREE.Mesh
   private readonly underMatL: THREE.MeshStandardMaterial
   private readonly underMatR: THREE.MeshStandardMaterial
+  private readonly coverMatFront: THREE.MeshStandardMaterial
+  private readonly coverMatBack: THREE.MeshStandardMaterial
+  private readonly coverSideMat: THREE.MeshStandardMaterial
+  private readonly coverInnerMat: THREE.MeshStandardMaterial
+  private readonly pageEdgeMat: THREE.MeshStandardMaterial
+  private readonly backPaperMatL: THREE.MeshStandardMaterial
+  private readonly backPaperMatR: THREE.MeshStandardMaterial
 
   // Pivots y grupos
   private readonly pivotL: THREE.Group
@@ -70,7 +79,7 @@ export class Book {
 
   private readonly flip: {
     active: boolean
-    dir: number
+    dir: 1 | -1 | 0
     t0: number
     pivot: THREE.Group | null
     hidden: THREE.Mesh | null
@@ -94,6 +103,12 @@ export class Book {
 
   private readonly geoTurnR: THREE.PlaneGeometry
   private readonly geoTurnL: THREE.PlaneGeometry
+
+  // Geometrías compartidas
+  private readonly coverGeom: THREE.BoxGeometry
+  private readonly pagesGeom: THREE.BoxGeometry
+  private readonly pagePlaneGeom: THREE.PlaneGeometry
+  private readonly backPlaneGeom: THREE.PlaneGeometry
 
   // Velocidades
   private readonly speeds: Required<BookAnimationSpeeds>
@@ -166,35 +181,35 @@ export class Book {
 
     // Usar texturas proporcionadas
     this.paperTex = config.paperTexture
-    const coverTexFront = config.frontCoverTexture.clone()
-    const coverTexBack = config.backCoverTexture.clone()
+    this.coverTexFront = config.frontCoverTexture.clone()
+    this.coverTexBack = config.backCoverTexture.clone()
 
     // Orientar texturas de portada
-    coverTexFront.center.set(0.5, 0.5)
-    coverTexFront.rotation = -Math.PI / 2
-    coverTexFront.needsUpdate = true
+    this.coverTexFront.center.set(0.5, 0.5)
+    this.coverTexFront.rotation = -Math.PI / 2
+    this.coverTexFront.needsUpdate = true
 
-    coverTexBack.center.set(0.5, 0.5)
-    coverTexBack.rotation = -Math.PI / 2
-    coverTexBack.needsUpdate = true
+    this.coverTexBack.center.set(0.5, 0.5)
+    this.coverTexBack.rotation = -Math.PI / 2
+    this.coverTexBack.needsUpdate = true
 
     // Materiales de portada
-    const coverMatFront = new THREE.MeshStandardMaterial({
-      map: coverTexFront,
+    this.coverMatFront = new THREE.MeshStandardMaterial({
+      map: this.coverTexFront,
       roughness: 0.85,
       metalness: 0.05,
     })
-    const coverMatBack = new THREE.MeshStandardMaterial({
-      map: coverTexBack,
+    this.coverMatBack = new THREE.MeshStandardMaterial({
+      map: this.coverTexBack,
       roughness: 0.9,
       metalness: 0.02,
     })
-    const coverSideMat = new THREE.MeshStandardMaterial({
+    this.coverSideMat = new THREE.MeshStandardMaterial({
       color: 0x141c35,
       roughness: 0.95,
       metalness: 0,
     })
-    const coverInnerMat = new THREE.MeshStandardMaterial({
+    this.coverInnerMat = new THREE.MeshStandardMaterial({
       map: this.paperTex,
       roughness: 0.98,
       metalness: 0,
@@ -203,24 +218,25 @@ export class Book {
 
     // Geometrías base
     const coverW = this.pageW + this.coverPad * 2
-    const coverGeom = new THREE.BoxGeometry(
+    this.coverGeom = new THREE.BoxGeometry(
       coverW,
       this.pageH + this.coverPad * 2,
       this.coverT,
     )
-    const pagesGeom = new THREE.BoxGeometry(
+    this.pagesGeom = new THREE.BoxGeometry(
       this.pageW,
       this.pageH,
       this.pageBlockT,
     )
 
-    // Lomo
+    // Lomo (geometría no compartida, se crea inline)
+    const spineGeom = new THREE.BoxGeometry(
+      Math.max(this.spineW, 0.06) + this.coverPad * 1.2,
+      this.pageH + this.coverPad * 2,
+      this.coverT + 0.15,
+    )
     const spine = new THREE.Mesh(
-      new THREE.BoxGeometry(
-        Math.max(this.spineW, 0.06) + this.coverPad * 1.2,
-        this.pageH + this.coverPad * 2,
-        this.coverT + 0.15,
-      ),
+      spineGeom,
       new THREE.MeshStandardMaterial({
         color: 0x10172d,
         roughness: 0.9,
@@ -255,42 +271,42 @@ export class Book {
     this.cover.rightPivot = this.rightCoverPivot
 
     // Tapas
-    this.leftCover = new THREE.Mesh(coverGeom, [
-      coverSideMat,
-      coverSideMat,
-      coverSideMat,
-      coverSideMat,
-      coverInnerMat,
-      coverMatBack,
+    this.leftCover = new THREE.Mesh(this.coverGeom, [
+      this.coverSideMat,
+      this.coverSideMat,
+      this.coverSideMat,
+      this.coverSideMat,
+      this.coverInnerMat,
+      this.coverMatBack,
     ])
     this.leftCover.position.set(-(coverW / 2), 0, 0)
     this.leftCoverPivot.add(this.leftCover)
 
-    this.rightCover = new THREE.Mesh(coverGeom, [
-      coverSideMat,
-      coverSideMat,
-      coverSideMat,
-      coverSideMat,
-      coverInnerMat,
-      coverMatFront,
+    this.rightCover = new THREE.Mesh(this.coverGeom, [
+      this.coverSideMat,
+      this.coverSideMat,
+      this.coverSideMat,
+      this.coverSideMat,
+      this.coverInnerMat,
+      this.coverMatFront,
     ])
     this.rightCover.position.set(+(coverW / 2), 0, 0)
     this.rightCoverPivot.add(this.rightCover)
 
     // Bloques de hojas
-    const pageEdgeMat = new THREE.MeshStandardMaterial({
+    this.pageEdgeMat = new THREE.MeshStandardMaterial({
       color: 0xf0e6cf,
       roughness: 0.98,
       metalness: 0,
     })
-    const pageBlockL = new THREE.Mesh(pagesGeom, pageEdgeMat)
+    const pageBlockL = new THREE.Mesh(this.pagesGeom, this.pageEdgeMat)
     pageBlockL.position.set(
       -(this.pageW / 2 + this.pageGap / 2),
       0,
       -(this.pageBlockT / 2),
     )
 
-    const pageBlockR = new THREE.Mesh(pagesGeom, pageEdgeMat)
+    const pageBlockR = new THREE.Mesh(this.pagesGeom, this.pageEdgeMat)
     pageBlockR.position.set(
       +(this.pageW / 2 + this.pageGap / 2),
       0,
@@ -309,49 +325,41 @@ export class Book {
       side: THREE.FrontSide,
     })
 
+    // Geometrías de páginas (compartidas)
+    this.pagePlaneGeom = new THREE.PlaneGeometry(this.pageW, this.pageH)
+    this.backPlaneGeom = new THREE.PlaneGeometry(this.pageW, this.pageH)
+
     // Páginas visibles
-    this.leftPage = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.pageW, this.pageH),
-      this.leftMat,
-    )
+    this.leftPage = new THREE.Mesh(this.pagePlaneGeom, this.leftMat)
     this.leftPage.position.x = -(this.pageW / 2 + this.pageGap / 2)
     this.leftPage.position.z = +this.zEps
     this.leftPage.name = 'leftPage'
 
-    this.rightPage = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.pageW, this.pageH),
-      this.rightMat,
-    )
+    this.rightPage = new THREE.Mesh(this.pagePlaneGeom, this.rightMat)
     this.rightPage.position.x = +(this.pageW / 2 + this.pageGap / 2)
     this.rightPage.position.z = +this.zEps
     this.rightPage.name = 'rightPage'
 
     // Backs de papel
-    const backPaperMatL = new THREE.MeshStandardMaterial({
+    this.backPaperMatL = new THREE.MeshStandardMaterial({
       roughness: 0.98,
       metalness: 0,
       side: THREE.FrontSide,
       map: this.paperTex,
     })
-    const backPaperMatR = new THREE.MeshStandardMaterial({
+    this.backPaperMatR = new THREE.MeshStandardMaterial({
       roughness: 0.98,
       metalness: 0,
       side: THREE.FrontSide,
       map: this.paperTex,
     })
 
-    const leftBack = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.pageW, this.pageH),
-      backPaperMatL,
-    )
+    const leftBack = new THREE.Mesh(this.backPlaneGeom, this.backPaperMatL)
     leftBack.position.copy(this.leftPage.position)
     leftBack.position.z = -this.zEps
     leftBack.rotation.y = Math.PI
 
-    const rightBack = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.pageW, this.pageH),
-      backPaperMatR,
-    )
+    const rightBack = new THREE.Mesh(this.backPlaneGeom, this.backPaperMatR)
     rightBack.position.copy(this.rightPage.position)
     rightBack.position.z = -this.zEps
     rightBack.rotation.y = Math.PI
@@ -368,19 +376,13 @@ export class Book {
       side: THREE.FrontSide,
     })
 
-    this.underRight = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.pageW, this.pageH),
-      this.underMatR,
-    )
+    this.underRight = new THREE.Mesh(this.pagePlaneGeom, this.underMatR)
     this.underRight.position.copy(this.rightPage.position)
     this.underRight.position.z = this.zEps * 2
     this.underRight.renderOrder = 5
     this.underRight.visible = false
 
-    this.underLeft = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.pageW, this.pageH),
-      this.underMatL,
-    )
+    this.underLeft = new THREE.Mesh(this.pagePlaneGeom, this.underMatL)
     this.underLeft.position.copy(this.leftPage.position)
     this.underLeft.position.z = this.zEps * 2
     this.underLeft.renderOrder = 5
@@ -456,7 +458,7 @@ export class Book {
     this.callbacks?.onCoverToggle?.(this.cover.open)
   }
 
-  public flipPage(dir: number): void {
+  public flipPage(dir: 1 | -1): void {
     if (!this.cover.open || this.cover.anim) return
     if (this.flip.active) return
     const nextIndex = this.spreadIndex + dir
@@ -633,8 +635,13 @@ export class Book {
     if (!Array.isArray(this.spreads) || this.spreads.length === 0) {
       throw new Error('spreads debe tener al menos 1 spread')
     }
-    if (!this.spreads.every(s => s.left && s.right)) {
-      throw new Error('cada spread debe tener left y right')
+    if (
+      !this.spreads.every(
+        s =>
+          s.left instanceof THREE.Texture && s.right instanceof THREE.Texture,
+      )
+    ) {
+      throw new Error('cada spread debe tener left y right como THREE.Texture')
     }
   }
 
@@ -677,10 +684,14 @@ export class Book {
 
   private cleanupFlipMeshes(): void {
     if (this.flip.frontMesh) {
+      const material = this.flip.frontMesh.material as THREE.Material
+      material.dispose()
       this.flip.pivot?.remove(this.flip.frontMesh)
       this.flip.frontMesh = null
     }
     if (this.flip.backMesh) {
+      const material = this.flip.backMesh.material as THREE.Material
+      material.dispose()
       this.flip.pivot?.remove(this.flip.backMesh)
       this.flip.backMesh = null
     }
@@ -708,5 +719,45 @@ export class Book {
     t.offset.set(1, 0)
     t.needsUpdate = true
     return t
+  }
+
+  public dispose(): void {
+    // 1) Detener/cancelar flip primero (evita meshes colgados)
+    this.cleanupFlipMeshes()
+
+    // 2) Limpiar materiales de portada
+    this.coverMatFront.dispose()
+    this.coverMatBack.dispose()
+    this.coverSideMat.dispose()
+    this.coverInnerMat.dispose()
+
+    // 3) Limpiar materiales de páginas
+    this.leftMat.dispose()
+    this.rightMat.dispose()
+    this.underMatL.dispose()
+    this.underMatR.dispose()
+    this.pageEdgeMat.dispose()
+    this.backPaperMatL.dispose()
+    this.backPaperMatR.dispose()
+
+    // 4) Limpiar texturas propias (clonadas por el Book)
+    // NOTA: NO disponemos paperTexture ni spreads porque vienen de config (no son del Book)
+    this.coverTexFront.dispose()
+    this.coverTexBack.dispose()
+
+    // 5) Limpiar cache de texturas volteadas (estas sí son del Book)
+    this.flippedCache.forEach(tex => tex.dispose())
+    this.flippedCache.clear()
+
+    // 6) Limpiar geometrías propias del Book
+    this.geoTurnR.dispose()
+    this.geoTurnL.dispose()
+    this.coverGeom.dispose()
+    this.pagesGeom.dispose()
+    this.pagePlaneGeom.dispose()
+    this.backPlaneGeom.dispose()
+
+    // 7) Remover del grupo padre si existe
+    this.group.removeFromParent()
   }
 }
